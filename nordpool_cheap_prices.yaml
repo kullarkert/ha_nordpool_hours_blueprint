@@ -1,0 +1,139 @@
+blueprint:
+  name: Nordpool price cheap hours
+  description:
+    This blueprints uses the nordpool integration and lets you choose how many hours
+    you will define as cheap, and make automations based on that information.
+  domain: automation
+  source_url: https://github.com/kullarkert/ha_nordpool_hours_blueprint/blob/main/nordpool_cheap_prices.yaml
+  input:
+    grid_area:
+      name: Grid area sensor
+      description: This is your grid area sensor
+      selector:
+        entity:
+          domain:
+            - sensor
+          integration: nordpool
+          multiple: false
+    cheap_hours:
+      name: Cheap hours
+      description: Number of cheap hours
+      default: 5
+      selector:
+        number:
+          min: 0.0
+          max: 24.0
+          mode: slider
+          step: 1.0
+          unit_of_measurement: "h"
+    # sequential:
+    #   name: Sequential order
+    #   description: "find cheap hours in sequential order"
+    #   default: false
+    #   selector:
+    #     boolean:
+    # start_time:
+    #   name: Start time
+    #   description: "Input which describes the first time when the action should start."
+    #   default: "00:00:00"
+    #   selector:
+    #     time: {}
+    # end_time:
+    #   name: End time
+    #   description: "Input which describes the last time when the action should end."
+    #   default: "23:59:59"
+    #   selector:
+    #     time: {}
+    day_monday:
+      name: Run on Monday
+      description: Run the action on Monday.
+      default: true
+      selector:
+        boolean:
+    day_tuesday:
+      name: Run on Tuesday
+      description: Run the action on Tuesday.
+      default: true
+      selector:
+        boolean:
+    day_wednesday:
+      name: Run on Wednesday
+      description: Run the action on Wednesday.
+      default: true
+      selector:
+        boolean:
+    day_thursday:
+      name: Run on Thursday
+      description: Run the action on Thursday.
+      default: true
+      selector:
+        boolean:
+    day_friday:
+      name: Run on Friday
+      description: Run the action on Friday.
+      default: true
+      selector:
+        boolean:
+    day_saturday:
+      name: Run on Saturday
+      description: Run the action on Saturday.
+      default: true
+      selector:
+        boolean:
+    day_sunday:
+      name: Run on Sunday
+      description: Run the action on Sunday.
+      default: true
+      selector:
+        boolean:
+    expensive:
+      name: Expensive
+      description: Action to run on expensive hours
+      default: []
+      selector:
+        action: {}
+    cheap:
+      name: Cheap
+      description: Action to run on cheap hours
+      default: []
+      selector:
+        action: {}
+variables:
+  grid_area_var: !input grid_area
+  cheap_hours_var: !input cheap_hours
+  # sequential_hours: !input sequential
+  # start_time: !input start_time
+  # end_time: !input end_time
+  day_monday: !input day_monday
+  day_tuesday: !input day_tuesday
+  day_wednesday: !input day_wednesday
+  day_thursday: !input day_thursday
+  day_friday: !input day_friday
+  day_saturday: !input day_saturday
+  day_sunday: !input day_sunday
+trigger:
+  - platform: state
+    entity_id: !input grid_area
+action:
+  - choose:
+      - conditions:
+          - condition: template
+            value_template: >-
+              {%- set today = now().weekday() -%} 
+              {%- if (today == 0 and day_monday) or (today == 1 and day_tuesday) or (today == 2 and day_wednesday) or ( today == 3 and day_thursday) or (today == 4 and day_friday) or (today == 5 and day_saturday) or (today == 6 and day_sunday) -%}
+                {{ state_attr(grid_area_var, 'current_price')|float <= (state_attr(grid_area_var,'today')|sort)[cheap_hours_var|int] }}
+              {%- else -%}
+                {{ false }}
+              {%- endif -%}
+        sequence: !input cheap
+      - conditions:
+          - condition: template
+            value_template: >-
+              {%- set today = now().weekday() -%} 
+              {%- if (today == 0 and day_monday) or (today == 1 and day_tuesday) or (today == 2 and day_wednesday) or ( today == 3 and day_thursday) or (today == 4 and day_friday) or (today == 5 and day_saturday) or (today == 6 and day_sunday) -%}
+                {{ state_attr(grid_area_var, 'current_price')|float > (state_attr(grid_area_var,'today')|sort)[cheap_hours_var|int] }}
+              {%- else -%}
+                {{ false }}
+              {%- endif -%}
+        sequence: !input expensive
+    default: []
