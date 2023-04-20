@@ -1,5 +1,5 @@
 blueprint:
-  name: Nordpool price cheap hours
+  name: Nordpool cheap hours
   description:
     This blueprints uses the nordpool integration and lets you choose how many hours
     you will define as cheap, and make automations based on that information.

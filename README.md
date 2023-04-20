@@ -5,14 +5,16 @@ This blueprint uses the [nordpool](https://github.com/custom-components/nordpool
 
 Let's you choose sensor and enities.
 
+![nordpool blueprint](screenshots/partial_screenshot.png)
+
 
 [!["Buy Me A Coffee"](https://www.buymeacoffee.com/assets/img/custom_images/yellow_img.png)](https://www.buymeacoffee.com/kullarkert)
 
 
 ## How to install
 * Open yaml file from this repo and copy address
-* Open Settings > Automation and Scenes > Blueprints > Import blueprint
-* Paste address and import
+* Open HA Settings > Automation and Scenes > Blueprints > Import blueprint
+* Paste previously copied address and import
 
 
 ## Known issuses
