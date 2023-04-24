@@ -121,7 +121,7 @@ action:
             value_template: >-
               {%- set today = now().weekday() -%} 
               {%- if (today == 0 and day_monday) or (today == 1 and day_tuesday) or (today == 2 and day_wednesday) or ( today == 3 and day_thursday) or (today == 4 and day_friday) or (today == 5 and day_saturday) or (today == 6 and day_sunday) -%}
-                {{ state_attr(grid_area_var, 'current_price')|float <= (state_attr(grid_area_var,'today')|sort)[cheap_hours_var|int] }}
+                {{ state_attr(grid_area_var, 'current_price')|float < (state_attr(grid_area_var,'today')|sort)[cheap_hours_var|int] }}
               {%- else -%}
                 {{ false }}
               {%- endif -%}
@@ -130,7 +130,9 @@ action:
           - condition: template
             value_template: >-
               {%- set today = now().weekday() -%} 
-              {%- if (today == 0 and day_monday) or (today == 1 and day_tuesday) or (today == 2 and day_wednesday) or ( today == 3 and day_thursday) or (today == 4 and day_friday) or (today == 5 and day_saturday) or (today == 6 and day_sunday) -%}
+              {%- if (day_monday == false and today == 0) or (day_tuesday == false and today == 1) or (day_wednesday == false and today == 2) or (day_thursday == false and today == 3) or (day_friday == false and today == 4) or (day_thursday == false and today == 3) or (day_friday == false and today == 4) or (day_saturday == false and today == 5) or (day_sunday == false and today == 6) -%}
+                {{ false }}
+              {%- elif (today == 0 and day_monday) or (today == 1 and day_tuesday) or (today == 2 and day_wednesday) or ( today == 3 and day_thursday) or (today == 4 and day_friday) or (today == 5 and day_saturday) or (today == 6 and day_sunday) -%}
                 {{ state_attr(grid_area_var, 'current_price')|float > (state_attr(grid_area_var,'today')|sort)[cheap_hours_var|int] }}
               {%- else -%}
                 {{ false }}
