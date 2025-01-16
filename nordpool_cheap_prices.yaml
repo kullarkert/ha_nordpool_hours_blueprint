@@ -1,8 +1,8 @@
 blueprint:
   name: Nordpool cheap hours
-  description:
-    This blueprints uses the nordpool integration and lets you choose how many hours
-    you will define as cheap, and make automations based on that information.
+  description: This blueprint uses the nordpool integration and lets you choose
+    how many hours you will define as cheap, and make automations
+    based on that information.
   domain: automation
   source_url: https://github.com/kullarkert/ha_nordpool_hours_blueprint/blob/main/nordpool_cheap_prices.yaml
   input:
@@ -21,10 +21,10 @@ blueprint:
       default: 5
       selector:
         number:
-          min: 0.0
-          max: 24.0
+          min: 0
+          max: 24
           mode: slider
-          step: 1.0
+          step: 1
           unit_of_measurement: "h"
     # sequential:
     #   name: Sequential order
@@ -46,43 +46,43 @@ blueprint:
     #     time: {}
     day_monday:
       name: Run on Monday
-      description: Run the action on Monday.
+      description: Run the action on Monday
       default: true
       selector:
         boolean:
     day_tuesday:
       name: Run on Tuesday
-      description: Run the action on Tuesday.
+      description: Run the action on Tuesday
       default: true
       selector:
         boolean:
     day_wednesday:
       name: Run on Wednesday
-      description: Run the action on Wednesday.
+      description: Run the action on Wednesday
       default: true
       selector:
         boolean:
     day_thursday:
       name: Run on Thursday
-      description: Run the action on Thursday.
+      description: Run the action on Thursday
       default: true
       selector:
         boolean:
     day_friday:
       name: Run on Friday
-      description: Run the action on Friday.
+      description: Run the action on Friday
       default: true
       selector:
         boolean:
     day_saturday:
       name: Run on Saturday
-      description: Run the action on Saturday.
+      description: Run the action on Saturday
       default: true
       selector:
         boolean:
     day_sunday:
       name: Run on Sunday
-      description: Run the action on Sunday.
+      description: Run the action on Sunday
       default: true
       selector:
         boolean:
