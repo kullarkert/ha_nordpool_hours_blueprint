@@ -1,7 +1,9 @@
 
 # Nordpool chepeast hours blueprint for Home Assistant
 
-This blueprint uses the [nordpool](https://github.com/custom-components/nordpool) integration and let's you choose how many hours you will define as cheap, on what day, sequential/not sequential hours, on what time and make automations based on that information.
+This blueprint uses the [custom nordpool](https://github.com/custom-components/nordpool) integration and let's you choose how many hours you will define as cheap, on what day, sequential/not sequential hours, on what time and make automations based on that information.
+
+**NB!** This works on 15min and 1hour prices.
 
 Let's you choose sensor and enities.
 

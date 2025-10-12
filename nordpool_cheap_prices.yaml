@@ -3,6 +3,7 @@ blueprint:
   description: This blueprint uses the nordpool integration and lets you choose
     how many hours you will define as cheap, and make automations
     based on that information.
+    Auto-scales to quarter-hours when present with Nordpool hourly (24) and 15-minute (96) prices.
   domain: automation
   source_url: https://github.com/kullarkert/ha_nordpool_hours_blueprint/blob/main/nordpool_cheap_prices.yaml
   input:
@@ -111,31 +112,67 @@ variables:
   day_friday: !input day_friday
   day_saturday: !input day_saturday
   day_sunday: !input day_sunday
+  # Computed variables for weekday and allowed days list
+  today: >-
+    {{ now().weekday() | int(0) }}
+  days: >-
+    {{ [day_monday, day_tuesday, day_wednesday, day_thursday, day_friday, day_saturday, day_sunday] }}
+  threshold: >-
+    {%- set prices = (state_attr(grid_area_var,'today') | list) -%}
+    {%- set count = prices | length -%}
+    {%- if count == 0 -%}
+      {{ 9999 }}
+    {%- else -%}
+      {%- set factor = 4 if count >= 96 else 1 -%}
+      {%- set raw_idx = (cheap_hours_var | int(0)) * factor -%}
+      {%- set idx = [raw_idx, count - 1] | min -%}
+      {{ (prices | map('float') | sort)[idx] }}
+    {%- endif -%}
+  # Computed variable for current 15-min or hourly price
+  current_slot_price: >-
+    {%- set raw = ((state_attr(grid_area_var,'raw_today') or []) + (state_attr(grid_area_var,'raw_tomorrow') or [])) -%}
+    {%- set nowts = now() -%}
+    {%- set cur = none -%}
+    {%- for p in raw %}
+      {%- set s = as_datetime(p.start) -%}
+      {%- set e = as_datetime(p.end) -%}
+      {%- if s <= nowts and nowts < e -%}
+        {%- set cur = (p.value | default(p.price)) | float(9999) -%}
+        {%- break -%}
+      {%- endif -%}
+    {%- endfor -%}
+    {%- if cur is none -%}
+      {%- set prices = (state_attr(grid_area_var,'today') | list) -%}
+      {%- set count = prices | length -%}
+      {%- if count >= 96 -%}
+        {# 15-min: index = hour*4 + minute//15 #}
+        {%- set idx = now().hour * 4 + (now().minute // 15) -%}
+      {%- elif count == 24 -%}
+        {# hourly fallback #}
+        {%- set idx = now().hour -%}
+      {%- else -%}
+        {%- set idx = 0 -%}
+      {%- endif -%}
+      {%- set idx = [ [idx, 0] | max, (count - 1) ] | min -%}
+      {%- set cur = prices[idx] | float(9999) -%}
+    {%- endif -%}
+    {{ cur }}
 trigger:
   - platform: state
     entity_id: !input grid_area
+  # Update every 15min
+  - platform: time_pattern
+    minutes: "/15"
 action:
   - choose:
       - conditions:
           - condition: template
             value_template: >-
-              {%- set today = now().weekday() -%} 
-              {%- if (today == 0 and day_monday) or (today == 1 and day_tuesday) or (today == 2 and day_wednesday) or ( today == 3 and day_thursday) or (today == 4 and day_friday) or (today == 5 and day_saturday) or (today == 6 and day_sunday) -%}
-                {{ state_attr(grid_area_var, 'current_price')|float < (state_attr(grid_area_var,'today')|sort)[cheap_hours_var|int] }}
-              {%- else -%}
-                {{ false }}
-              {%- endif -%}
+               {{ days[today] and current_slot_price <= threshold }}
         sequence: !input cheap
       - conditions:
           - condition: template
             value_template: >-
-              {%- set today = now().weekday() -%} 
-              {%- if (day_monday == false and today == 0) or (day_tuesday == false and today == 1) or (day_wednesday == false and today == 2) or (day_thursday == false and today == 3) or (day_friday == false and today == 4) or (day_thursday == false and today == 3) or (day_friday == false and today == 4) or (day_saturday == false and today == 5) or (day_sunday == false and today == 6) -%}
-                {{ false }}
-              {%- elif (today == 0 and day_monday) or (today == 1 and day_tuesday) or (today == 2 and day_wednesday) or ( today == 3 and day_thursday) or (today == 4 and day_friday) or (today == 5 and day_saturday) or (today == 6 and day_sunday) -%}
-                {{ state_attr(grid_area_var, 'current_price')|float > (state_attr(grid_area_var,'today')|sort)[cheap_hours_var|int] }}
-              {%- else -%}
-                {{ false }}
-              {%- endif -%}
+              {{ days[today] and current_slot_price > threshold }} 
         sequence: !input expensive
     default: []
