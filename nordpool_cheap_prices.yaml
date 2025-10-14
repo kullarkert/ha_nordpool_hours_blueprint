@@ -6,6 +6,7 @@ blueprint:
     Auto-scales to quarter-hours when present with Nordpool hourly (24) and 15-minute (96) prices.
   domain: automation
   source_url: https://github.com/kullarkert/ha_nordpool_hours_blueprint/blob/main/nordpool_cheap_prices.yaml
+  author: kullarkert
   input:
     grid_area:
       name: Grid area sensor
@@ -27,24 +28,18 @@ blueprint:
           mode: slider
           step: 1
           unit_of_measurement: "h"
-    # sequential:
-    #   name: Sequential order
-    #   description: "find cheap hours in sequential order"
-    #   default: false
-    #   selector:
-    #     boolean:
-    # start_time:
-    #   name: Start time
-    #   description: "Input which describes the first time when the action should start."
-    #   default: "00:00:00"
-    #   selector:
-    #     time: {}
-    # end_time:
-    #   name: End time
-    #   description: "Input which describes the last time when the action should end."
-    #   default: "23:59:59"
-    #   selector:
-    #     time: {}
+    start_time:
+      name: Start time
+      description: First time of the day to consider prices
+      default: "00:00:00"
+      selector:
+        time: {}
+    end_time:
+      name: End time
+      description: Last time of the day to consider prices
+      default: "23:59:59"
+      selector:
+        time: {}
     day_monday:
       name: Run on Monday
       description: Run the action on Monday
@@ -102,9 +97,8 @@ blueprint:
 variables:
   grid_area_var: !input grid_area
   cheap_hours_var: !input cheap_hours
-  # sequential_hours: !input sequential
-  # start_time: !input start_time
-  # end_time: !input end_time
+  start_time: !input start_time
+  end_time: !input end_time
   day_monday: !input day_monday
   day_tuesday: !input day_tuesday
   day_wednesday: !input day_wednesday
@@ -112,21 +106,53 @@ variables:
   day_friday: !input day_friday
   day_saturday: !input day_saturday
   day_sunday: !input day_sunday
-  # Computed variables for weekday and allowed days list
+
+  #Custom variables that are computed
+
+  start_hour: >-
+    {{ start_time.split(':')[0] | int(0) }}
+  start_minute: >-
+    {{ start_time.split(':')[1] | int(0) }}
+  end_hour: >-
+    {{ end_time.split(':')[0] | int(23) }}
+  end_minute: >-
+    {{ end_time.split(':')[1] | int(59) }}
+  in_time_window: >-
+    {%- set now_mins = now().hour * 60 + now().minute -%}
+    {%- set start_mins = start_hour * 60 + start_minute -%}
+    {%- set end_mins = end_hour * 60 + end_minute -%}
+    {{ start_mins <= now_mins and now_mins <= end_mins }}
   today: >-
     {{ now().weekday() | int(0) }}
   days: >-
     {{ [day_monday, day_tuesday, day_wednesday, day_thursday, day_friday, day_saturday, day_sunday] }}
   threshold: >-
-    {%- set prices = (state_attr(grid_area_var,'today') | list) -%}
-    {%- set count = prices | length -%}
+    {%- set all_prices = (state_attr(grid_area_var,'today') | list) -%}
+    {%- set count = all_prices | length -%}
     {%- if count == 0 -%}
       {{ 9999 }}
     {%- else -%}
       {%- set factor = 4 if count >= 96 else 1 -%}
-      {%- set raw_idx = (cheap_hours_var | int(0)) * factor -%}
-      {%- set idx = [raw_idx, count - 1] | min -%}
-      {{ (prices | map('float') | sort)[idx] }}
+      {%- if count >= 96 -%}
+        {# 15-min slots #}
+        {%- set start_idx = start_hour * 4 + (start_minute // 15) -%}
+        {%- set end_idx = end_hour * 4 + (end_minute // 15) -%}
+      {%- else -%}
+        {# Hourly slots #}
+        {%- set start_idx = start_hour -%}
+        {%- set end_idx = end_hour -%}
+      {%- endif -%}
+      {%- set start_idx = [[start_idx, 0] | max, count - 1] | min -%}
+      {%- set end_idx = [[end_idx, 0] | max, count - 1] | min -%}
+      {%- set filtered_prices = all_prices[start_idx:end_idx + 1] -%}
+      {%- set filtered_count = filtered_prices | length -%}
+      {%- if filtered_count == 0 -%}
+        {{ 9999 }}
+      {%- else -%}
+        {%- set raw_idx = (cheap_hours_var | int(0)) * factor -%}
+        {%- set idx = [raw_idx, filtered_count - 1] | min -%}
+        {{ (filtered_prices | map('float') | sort)[idx] }}
+      {%- endif -%}
     {%- endif -%}
   # Computed variable for current 15-min or hourly price
   current_slot_price: >-
@@ -168,11 +194,11 @@ action:
       - conditions:
           - condition: template
             value_template: >-
-               {{ days[today] and current_slot_price <= threshold }}
+               {{ days[today] and in_time_window and current_slot_price <= threshold }}
         sequence: !input cheap
       - conditions:
           - condition: template
             value_template: >-
-              {{ days[today] and current_slot_price > threshold }} 
+              {{ days[today] and in_time_window and current_slot_price > threshold }} 
         sequence: !input expensive
     default: []
