@@ -13,7 +13,7 @@ Let's you choose sensor and enities.
 [!["Buy Me A Coffee"](https://www.buymeacoffee.com/assets/img/custom_images/yellow_img.png)](https://www.buymeacoffee.com/kullarkert)
 
 ## Features
-- **Time range filtering**: Set start and end times to only search for cheap hours within a specific window (e.g., 06:00-22:00). Actions will only trigger within this time window.
+- **Time range filtering**: Set start and end times to only search for cheap hours within a specific window (e.g., 06:00-22:00).
 - **Weekday selection**: Choose which days of the week to run automations.
 - **Flexible thresholds**: Define how many hours should be considered "cheap".
 - **Auto-scaling**: Automatically handles both hourly (24 prices) and 15-minute (96 prices) Nordpool data.
@@ -103,6 +103,29 @@ attributes:
 - Tomorrow's prices (`raw_tomorrow`, `tomorrow`) become available around 13:00-14:00 CET each day
 - `tomorrow_valid: false` indicates tomorrow's data is not yet available
 - Each `raw_today` entry uses `value` field (not `price`) for the price amount
+
+## Configuration
+
+### Actions
+The blueprint has three action inputs:
+
+1. **Cheap action**: Runs when inside time window AND current price ≤ threshold
+2. **Expensive action**: Runs when inside time window AND current price > threshold  
+
+### Time range behavior
+When you configure start and end times (e.g., `21:00:00` to `23:00:00`):
+
+**Inside the time window (21:00-23:00):**
+- Prices are compared to the threshold calculated from that window
+- If current price ≤ threshold → "Cheap" action runs (turn on device)
+- If current price > threshold → "Expensive" action runs (turn off device)
+
+**Example use case:**
+- Time range: `21:00:00` to `23:00:00`
+- Cheap hours: `2`
+- Cheap action: Turn on heater
+- Expensive action: Turn off heater
+- **Result**: Heater turns on during the 2 cheapest 15-minute slots between 21:00-23:00, then automatically turns off at 23:00 and stays off until 21:00 the next day
 
 
 ## Known issuses

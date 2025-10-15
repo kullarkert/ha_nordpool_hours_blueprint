@@ -199,6 +199,6 @@ action:
       - conditions:
           - condition: template
             value_template: >-
-              {{ days[today] and in_time_window and current_slot_price > threshold }} 
+              {{ days[today] and (not in_time_window or current_slot_price > threshold) }} 
         sequence: !input expensive
     default: []
