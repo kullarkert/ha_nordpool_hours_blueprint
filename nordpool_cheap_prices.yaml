@@ -28,6 +28,18 @@ blueprint:
           mode: slider
           step: 1
           unit_of_measurement: "h"
+    dynamic_hours_sensor:
+      name: Dynamic cheap hours entity (optional)
+      description: >
+        input_number or sensor that holds how many HOURS should count as "cheap".
+        If set, overrides the Cheap hours slider above.
+      default: ""
+      selector:
+        entity:
+          multiple: false
+          domain:
+            - input_number
+            - sensor
     start_time:
       name: Start time
       description: First time of the day to consider prices
@@ -40,48 +52,54 @@ blueprint:
       default: "23:59:59"
       selector:
         time: {}
-    day_monday:
-      name: Run on Monday
-      description: Run the action on Monday
-      default: true
+    use_absolute_threshold:
+      name: Enable absolute price threshold
+      description: >
+        When enabled, the cheap action runs whenever the current price is below
+        the absolute threshold, ignoring time window and day-of-week restrictions.
+      default: false
       selector:
         boolean:
-    day_tuesday:
-      name: Run on Tuesday
-      description: Run the action on Tuesday
-      default: true
+    absolute_price_threshold:
+      name: Absolute price threshold
+      description: >
+        Price value for the bypass rule. Only active when "Enable absolute price threshold" is on.
+      default: 0
       selector:
-        boolean:
-    day_wednesday:
-      name: Run on Wednesday
-      description: Run the action on Wednesday
-      default: true
+        number:
+          min: -999
+          max: 999
+          mode: box
+          step: 0.001
+    run_days:
+      name: Run on days
+      description: Select the days the automation should run
+      default:
+        - mon
+        - tue
+        - wed
+        - thu
+        - fri
+        - sat
+        - sun
       selector:
-        boolean:
-    day_thursday:
-      name: Run on Thursday
-      description: Run the action on Thursday
-      default: true
-      selector:
-        boolean:
-    day_friday:
-      name: Run on Friday
-      description: Run the action on Friday
-      default: true
-      selector:
-        boolean:
-    day_saturday:
-      name: Run on Saturday
-      description: Run the action on Saturday
-      default: true
-      selector:
-        boolean:
-    day_sunday:
-      name: Run on Sunday
-      description: Run the action on Sunday
-      default: true
-      selector:
-        boolean:
+        select:
+          multiple: true
+          options:
+            - label: Monday
+              value: mon
+            - label: Tuesday
+              value: tue
+            - label: Wednesday
+              value: wed
+            - label: Thursday
+              value: thu
+            - label: Friday
+              value: fri
+            - label: Saturday
+              value: sat
+            - label: Sunday
+              value: sun
     expensive:
       name: Expensive
       description: Action to run on expensive hours
@@ -97,18 +115,26 @@ blueprint:
 variables:
   grid_area_var: !input grid_area
   cheap_hours_var: !input cheap_hours
+  dynamic_hours_sensor: !input dynamic_hours_sensor
   start_time: !input start_time
   end_time: !input end_time
-  day_monday: !input day_monday
-  day_tuesday: !input day_tuesday
-  day_wednesday: !input day_wednesday
-  day_thursday: !input day_thursday
-  day_friday: !input day_friday
-  day_saturday: !input day_saturday
-  day_sunday: !input day_sunday
+  use_absolute_threshold: !input use_absolute_threshold
+  absolute_price_threshold_var: !input absolute_price_threshold
+  run_days: !input run_days
 
-  #Custom variables that are computed
+  # --- EFFECTIVE HOURS (dynamic runtime length) ---
+  # if dynamic_hours_sensor is set and has a numeric value, we use that
+  # otherwise we fall back to cheap_hours_var from the blueprint slider
+  effective_hours: >-
+    {%- set dyn_state = states(dynamic_hours_sensor) | lower -%}
+    {%- if dynamic_hours_sensor in ["", none] or dyn_state in ["unknown", "unavailable", "none", ""] -%}
+      {{ cheap_hours_var | int(0) }}
+    {%- else -%}
+      {{ dyn_state | int(cheap_hours_var | int(0)) }}
+    {%- endif -%}
 
+  today: >-
+    {{ now().weekday() | int(0) }}
   start_hour: >-
     {{ start_time.split(':')[0] | int(0) }}
   start_minute: >-
@@ -117,15 +143,21 @@ variables:
     {{ end_time.split(':')[0] | int(23) }}
   end_minute: >-
     {{ end_time.split(':')[1] | int(59) }}
+
   in_time_window: >-
     {%- set now_mins = now().hour * 60 + now().minute -%}
     {%- set start_mins = start_hour * 60 + start_minute -%}
     {%- set end_mins = end_hour * 60 + end_minute -%}
     {{ start_mins <= now_mins and now_mins <= end_mins }}
-  today: >-
-    {{ now().weekday() | int(0) }}
+
   days: >-
-    {{ [day_monday, day_tuesday, day_wednesday, day_thursday, day_friday, day_saturday, day_sunday] }}
+    {%- set names = ['mon','tue','wed','thu','fri','sat','sun'] -%}
+    {%- set ns = namespace(result=[]) -%}
+    {%- for n in names -%}
+      {%- set ns.result = ns.result + [(n in run_days)] -%}
+    {%- endfor -%}
+    {{ ns.result }}
+
   threshold: >-
     {%- set all_prices = (state_attr(grid_area_var,'today') | list) -%}
     {%- set count = all_prices | length -%}
@@ -149,11 +181,12 @@ variables:
       {%- if filtered_count == 0 -%}
         {{ 9999 }}
       {%- else -%}
-        {%- set raw_idx = (cheap_hours_var | int(0)) * factor -%}
+        {%- set raw_idx = (effective_hours | int(0)) * factor -%}
         {%- set idx = [raw_idx, filtered_count - 1] | min -%}
         {{ (filtered_prices | map('float') | sort)[idx] }}
       {%- endif -%}
     {%- endif -%}
+
   # Computed variable for current 15-min or hourly price
   current_slot_price: >-
     {%- set raw = ((state_attr(grid_area_var,'raw_today') or []) + (state_attr(grid_area_var,'raw_tomorrow') or [])) -%}
@@ -194,11 +227,16 @@ action:
       - conditions:
           - condition: template
             value_template: >-
-               {{ days[today] and in_time_window and current_slot_price <= threshold }}
+              {{ use_absolute_threshold and current_slot_price <= absolute_price_threshold_var }}
         sequence: !input cheap
       - conditions:
           - condition: template
             value_template: >-
-              {{ days[today] and (not in_time_window or current_slot_price > threshold) }} 
+              {{ days[today] and in_time_window and current_slot_price <= threshold }}
+        sequence: !input cheap
+      - conditions:
+          - condition: template
+            value_template: >-
+              {{ days[today] and (not in_time_window or current_slot_price > threshold) }}
         sequence: !input expensive
     default: []
