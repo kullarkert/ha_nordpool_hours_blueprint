@@ -17,11 +17,18 @@ Let's you choose sensor and enities.
 - **Weekday selection**: Choose which days of the week to run automations.
 - **Flexible thresholds**: Define how many hours should be considered "cheap".
 - **Auto-scaling**: Automatically handles both hourly (24 prices) and 15-minute (96 prices) Nordpool data.
+- **Testing blueprint extras**: Optional dynamic cheap-hours entity and optional absolute price threshold bypass.
 
 ## How to install
 * Open yaml file from this repo and copy address
 * Open HA Settings > Automation and Scenes > Blueprints > Import blueprint
 * Paste previously copied address and import
+
+### Which blueprint to import
+- Use `nordpool_cheap_prices.yaml` if you want the stable version.
+- Use `nordpool_cheap_prices_testing.yaml` if you want the newer testing features described below:
+  - Dynamic cheap hours entity
+  - Absolute price threshold
 
 
 ## Prerequisites
@@ -105,6 +112,43 @@ attributes:
 - Each `raw_today` entry uses `value` field (not `price`) for the price amount
 
 ## Configuration
+
+#### Dynamic cheap hours entity
+
+`Dynamic cheap hours entity (optional)` accepts an `input_number` or a numeric `sensor`.
+
+- If the entity is set and has a valid numeric value, it overrides the `Cheap hours` slider.
+- If the entity is empty, `unknown`, or `unavailable`, the blueprint falls back to the normal `Cheap hours` slider.
+- The value is interpreted as hours. On 15-minute Nordpool data the blueprint automatically scales that to quarter-hour slots.
+
+Use this when:
+- You want to change the number of cheap hours from a Home Assistant dashboard without reopening the automation.
+- You want another automation, helper, or template sensor to decide how many cheap hours should be used.
+- You want seasonal or weather-based tuning, for example more heating hours on colder days and fewer hours on milder days.
+
+Example UI for dynamic variable control:
+
+![Dynamic cheap hours example](screenshots/dynamic_hours_control.png)
+
+In the example above, an `input_number` helper is used to control the runtime target from the UI. That helper can be selected as the `Dynamic cheap hours entity`, letting the blueprint react immediately to the updated value.
+
+#### Absolute price threshold
+
+The testing blueprint also adds:
+- `Enable absolute price threshold`
+- `Absolute price threshold`
+
+When enabled, the cheap action runs whenever the current Nordpool price is less than or equal to the configured absolute price threshold.
+
+Use this when:
+- You have a hard maximum price where consumption is always acceptable, regardless of the selected time window.
+- You want to force heating, charging, or another load on whenever the market price drops below a fixed value.
+- You want a simple "buy below this price" rule instead of relying only on the cheapest N hours of the day.
+
+Important behavior:
+- This bypass is only for the cheap action.
+- It ignores the normal time window and weekday filtering when the current price is below the absolute threshold.
+- The expensive action still follows the normal weekday and time-window logic.
 
 ### Actions
 The blueprint has three action inputs:
