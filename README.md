@@ -30,6 +30,10 @@ Let's you choose sensor and enities.
   - Dynamic cheap hours entity
   - Absolute price threshold
 
+## Testing
+
+Testing documentation and local validation commands are in [tests/TESTING.md](tests/TESTING.md).
+
 
 ## Prerequisites
 

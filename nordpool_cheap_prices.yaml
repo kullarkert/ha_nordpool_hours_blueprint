@@ -203,17 +203,21 @@ variables:
     {%- if cur is none -%}
       {%- set prices = (state_attr(grid_area_var,'today') | list) -%}
       {%- set count = prices | length -%}
-      {%- if count >= 96 -%}
+      {%- if count == 0 -%}
+        {%- set cur = 9999 -%}
+      {%- elif count >= 96 -%}
         {# 15-min: index = hour*4 + minute//15 #}
         {%- set idx = now().hour * 4 + (now().minute // 15) -%}
+        {%- set idx = [ [idx, 0] | max, (count - 1) ] | min -%}
+        {%- set cur = prices[idx] | float(9999) -%}
       {%- elif count == 24 -%}
         {# hourly fallback #}
         {%- set idx = now().hour -%}
+        {%- set idx = [ [idx, 0] | max, (count - 1) ] | min -%}
+        {%- set cur = prices[idx] | float(9999) -%}
       {%- else -%}
-        {%- set idx = 0 -%}
+        {%- set cur = 9999 -%}
       {%- endif -%}
-      {%- set idx = [ [idx, 0] | max, (count - 1) ] | min -%}
-      {%- set cur = prices[idx] | float(9999) -%}
     {%- endif -%}
     {{ cur }}
 trigger:
